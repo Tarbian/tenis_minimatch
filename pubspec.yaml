@@ -1,12 +1,13 @@
 name: tenis_minimatch
 description: A new Flutter project.
 publish_to: 'none'
-version: 0.1.3
+version: 0.1.4
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
 
 dependencies:
+  audioplayers: ^5.2.1
   flutter:
     sdk: flutter
   flutter_bloc: ^8.1.5
@@ -20,9 +21,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+  - assets/sound/
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: false
-  image_path: "lib/assets/icon.png"
+  image_path: "assets/icon.png"
   min_sdk_android: 26

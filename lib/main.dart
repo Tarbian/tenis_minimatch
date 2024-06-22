@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:wakelock/wakelock.dart';
 import 'game_state.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 void main() {
   runApp(const MyApp());
@@ -22,7 +23,7 @@ class TennisScoreApp extends StatefulWidget {
   const TennisScoreApp({super.key});
 
   @override
-  _TennisScoreAppState createState() => _TennisScoreAppState();
+  State<TennisScoreApp> createState() => _TennisScoreAppState();
 }
 
 class _TennisScoreAppState extends State<TennisScoreApp> {
@@ -31,7 +32,14 @@ class _TennisScoreAppState extends State<TennisScoreApp> {
   bool playerOneServing = Random().nextBool();
   int servingTurns = 0;
   List<GameState> gameStateHistory = [];
-
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final List<String> _soundFiles = [
+    'sound/audience-applause-clapping-soundroll-1-00-10.mp3',
+    'sound/nice-impressed-female-smartsound-fx-1-00-01.mp3',
+    'sound/we-ve-got-a-winner-carnival-speaker-voice-dan-barracuda-1-00-02.mp3',
+    'sound/mixkit-achievement-bell-600.wav',
+    'sound/mixkit-ethereal-fairy-win-sound-2019.wav'
+  ];
   @override
   void initState() {
     super.initState();
@@ -106,7 +114,8 @@ class _TennisScoreAppState extends State<TennisScoreApp> {
     });
   }
 
-  void showWinnerDialog(String winner, int playerOneScore, int playerTwoScore) {
+  void showWinnerDialog(
+      String winner, int playerOneScore, int playerTwoScore) async {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -127,6 +136,13 @@ class _TennisScoreAppState extends State<TennisScoreApp> {
         );
       },
     );
+    await playRandomSound();
+  }
+
+  Future<void> playRandomSound() async {
+    final random = Random();
+    String soundFile = _soundFiles[random.nextInt(_soundFiles.length)];
+    await _audioPlayer.play(AssetSource(soundFile));
   }
 
   void resetGame() {
@@ -221,6 +237,12 @@ class _TennisScoreAppState extends State<TennisScoreApp> {
                             onPressed: undoLastScore,
                             child: const Text('Undo'),
                           ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onLongPress: resetGame,
+                            onPressed: null,
+                            child: const Text('Reset'),
+                          ),
                         ],
                       ),
                     ],
@@ -295,6 +317,12 @@ class _TennisScoreAppState extends State<TennisScoreApp> {
                           ElevatedButton(
                             onPressed: undoLastScore,
                             child: const Text('Undo'),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onLongPress: resetGame,
+                            onPressed: null,
+                            child: const Text('Reset'),
                           ),
                         ],
                       ),
