@@ -1,37 +1,29 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 import 'package:wakelock/wakelock.dart';
-import 'game_state.dart';
 import 'package:audioplayers/audioplayers.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: TennisScoreApp(),
+void main() => runApp(
+      MaterialApp(
+        home: const TennisScoreApp(),
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
+          useMaterial3: true,
+        ),
+      ),
     );
-  }
-}
 
 class TennisScoreApp extends StatefulWidget {
-  const TennisScoreApp({super.key});
+  const TennisScoreApp({Key? key}) : super(key: key);
 
   @override
   State<TennisScoreApp> createState() => _TennisScoreAppState();
 }
 
 class _TennisScoreAppState extends State<TennisScoreApp> {
-  int playerOneScore = 0;
-  int playerTwoScore = 0;
+  int playerOneScore = 0, playerTwoScore = 0, servingTurns = 0;
   bool playerOneServing = Random().nextBool();
-  int servingTurns = 0;
-  List<GameState> gameStateHistory = [];
+  List<Map<String, dynamic>> gameStateHistory = [];
   final AudioPlayer _audioPlayer = AudioPlayer();
   final List<String> _soundFiles = [
     'sound/audience-applause-clapping-soundroll-1-00-10.mp3',
@@ -40,6 +32,7 @@ class _TennisScoreAppState extends State<TennisScoreApp> {
     'sound/mixkit-achievement-bell-600.wav',
     'sound/mixkit-ethereal-fairy-win-sound-2019.wav'
   ];
+
   @override
   void initState() {
     super.initState();
@@ -53,283 +46,157 @@ class _TennisScoreAppState extends State<TennisScoreApp> {
   }
 
   void undoLastScore() {
-    setState(() {
-      if (gameStateHistory.isNotEmpty) {
-        GameState lastState = gameStateHistory.removeLast();
-        playerOneScore = lastState.playerOneScore;
-        playerTwoScore = lastState.playerTwoScore;
-        playerOneServing = lastState.playerOneServing;
-        servingTurns = lastState.servingTurns;
-      }
-    });
-  }
-
-  void checkScore() {
-    setState(() {
-      if (playerOneScore >= 11 && playerOneScore >= playerTwoScore + 2) {
-        showWinnerDialog('Left', playerOneScore, playerTwoScore);
-        resetGame();
-      } else if (playerTwoScore >= 11 && playerTwoScore >= playerOneScore + 2) {
-        showWinnerDialog('Right', playerOneScore, playerTwoScore);
-        resetGame();
-      } else {
-        changeServer();
-      }
-    });
-  }
-
-  void changeServer() {
-    servingTurns++;
-    if (servingTurns >= 2) {
+    if (gameStateHistory.isNotEmpty) {
       setState(() {
-        playerOneServing = !playerOneServing;
-        servingTurns = 0;
+        final lastState = gameStateHistory.removeLast();
+        playerOneScore = lastState['playerOneScore'];
+        playerTwoScore = lastState['playerTwoScore'];
+        playerOneServing = lastState['playerOneServing'];
+        servingTurns = lastState['servingTurns'];
       });
     }
   }
 
-  void incrementPlayerOneScore() {
+  void incrementScore(bool isPlayerOne) {
     setState(() {
-      gameStateHistory.add(GameState(
-        playerOneScore: playerOneScore,
-        playerTwoScore: playerTwoScore,
-        playerOneServing: playerOneServing,
-        servingTurns: servingTurns,
-      ));
-      playerOneScore++;
-      checkScore();
+      gameStateHistory.add({
+        'playerOneScore': playerOneScore,
+        'playerTwoScore': playerTwoScore,
+        'playerOneServing': playerOneServing,
+        'servingTurns': servingTurns,
+      });
+
+      if (isPlayerOne) {
+        playerOneScore++;
+      } else {
+        playerTwoScore++;
+      }
+
+      if (checkWinner()) return;
+
+      if (++servingTurns >= 2) {
+        playerOneServing = !playerOneServing;
+        servingTurns = 0;
+      }
     });
   }
 
-  void incrementPlayerTwoScore() {
-    setState(() {
-      gameStateHistory.add(GameState(
-        playerOneScore: playerOneScore,
-        playerTwoScore: playerTwoScore,
-        playerOneServing: playerOneServing,
-        servingTurns: servingTurns,
-      ));
-      playerTwoScore++;
-      checkScore();
-    });
+  bool checkWinner() {
+    final winner = playerOneScore >= 11 && playerOneScore >= playerTwoScore + 2
+        ? 'Left'
+        : playerTwoScore >= 11 && playerTwoScore >= playerOneScore + 2
+            ? 'Right'
+            : null;
+    if (winner != null) {
+      showWinnerDialog(winner);
+      resetGame();
+      return true;
+    }
+    return false;
   }
 
-  void showWinnerDialog(
-      String winner, int playerOneScore, int playerTwoScore) async {
+  void showWinnerDialog(String winner) {
+    final int finalPlayerOneScore = playerOneScore;
+    final int finalPlayerTwoScore = playerTwoScore;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Winner'),
-          content:
-              Text('$winner wins!\nScore: $playerOneScore : $playerTwoScore'),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                resetGame();
-              },
-              child: const Text('Play Again'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AlertDialog(
+        title: const Text('Winner'),
+        content: Text(
+            '$winner wins!\nScore: $finalPlayerOneScore : $finalPlayerTwoScore'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              resetGame();
+            },
+            child: const Text('Play Again'),
+          ),
+        ],
+      ),
     );
-    await playRandomSound();
+    playRandomSound();
   }
 
   Future<void> playRandomSound() async {
-    final random = Random();
-    String soundFile = _soundFiles[random.nextInt(_soundFiles.length)];
-    await _audioPlayer.play(AssetSource(soundFile));
+    await _audioPlayer
+        .play(AssetSource(_soundFiles[Random().nextInt(_soundFiles.length)]));
   }
 
   void resetGame() {
     setState(() {
-      playerOneScore = 0;
-      playerTwoScore = 0;
+      playerOneScore = playerTwoScore = servingTurns = 0;
       playerOneServing = Random().nextBool();
-      servingTurns = 0;
       gameStateHistory.clear();
     });
   }
 
+  Widget buildScoreButton(bool isPlayerOne) {
+    final color = isPlayerOne ? Colors.green : Colors.blue;
+    final score = isPlayerOne ? playerOneScore : playerTwoScore;
+    final isServing = isPlayerOne ? playerOneServing : !playerOneServing;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => incrementScore(isPlayerOne),
+        child: Container(
+          color: color,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '$score',
+                style: const TextStyle(fontSize: 32.0, color: Colors.white),
+              ),
+              if (isServing)
+                const Text(
+                  'Serves',
+                  style: TextStyle(fontSize: 16.0, color: Colors.white),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: Scaffold(
-        body: OrientationBuilder(
-          builder: (context, orientation) {
-            return orientation == Orientation.portrait
-                ? Column(
-                    children: <Widget>[
-                      Expanded(
-                        child: Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: incrementPlayerOneScore,
-                                child: Container(
-                                  color: Colors.green,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '$playerOneScore',
-                                        style: const TextStyle(
-                                          fontSize: 32.0,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      if (playerOneServing)
-                                        const Text(
-                                          'Serves',
-                                          style: TextStyle(
-                                            fontSize: 16.0,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: incrementPlayerTwoScore,
-                                child: Container(
-                                  color: Colors.blue,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '$playerTwoScore',
-                                        style: const TextStyle(
-                                          fontSize: 32.0,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      if (!playerOneServing)
-                                        const Text(
-                                          'Serves',
-                                          style: TextStyle(
-                                            fontSize: 16.0,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton(
-                            onPressed: undoLastScore,
-                            child: const Text('Undo'),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onLongPress: resetGame,
-                            onPressed: null,
-                            child: const Text('Reset'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  )
-                : Column(
-                    children: <Widget>[
-                      Expanded(
-                        child: Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: incrementPlayerOneScore,
-                                child: Container(
-                                  color: Colors.green,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '$playerOneScore',
-                                        style: const TextStyle(
-                                          fontSize: 32.0,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      if (playerOneServing)
-                                        const Text(
-                                          'Serves',
-                                          style: TextStyle(
-                                            fontSize: 16.0,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: incrementPlayerTwoScore,
-                                child: Container(
-                                  color: Colors.blue,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        '$playerTwoScore',
-                                        style: const TextStyle(
-                                          fontSize: 32.0,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      if (!playerOneServing)
-                                        const Text(
-                                          'Serves',
-                                          style: TextStyle(
-                                            fontSize: 16.0,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ElevatedButton(
-                            onPressed: undoLastScore,
-                            child: const Text('Undo'),
-                          ),
-                          const SizedBox(width: 10),
-                          ElevatedButton(
-                            onLongPress: resetGame,
-                            onPressed: null,
-                            child: const Text('Reset'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-          },
-        ),
+    return Scaffold(
+      body: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                buildScoreButton(true),
+                buildScoreButton(false),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                onPressed: undoLastScore,
+                child: const Text('Undo'),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onLongPress: resetGame,
+                onPressed: null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(255, 235, 128, 122),
+                  disabledBackgroundColor: Colors.red.shade200,
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white70,
+                ),
+                child: const Text('Reset'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

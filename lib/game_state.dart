@@ -1,8 +1,8 @@
 class GameState {
-  int playerOneScore;
-  int playerTwoScore;
-  bool playerOneServing;
-  int servingTurns;
+  final int playerTwoScore;
+  final int playerOneScore;
+  final bool playerOneServing;
+  final int servingTurns;
 
   GameState({
     required this.playerOneScore,
